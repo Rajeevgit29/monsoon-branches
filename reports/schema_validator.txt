@@ -1,0 +1,8 @@
+health: OK
+  [JSON lists (canonical)] no perturbation  OK   0.07s  
+  [JSON lists (canonical)] warm_ocean       OK   0.07s  
+  [JSON lists (canonical)] zeros            OK   0.07s  
+  [base64 (also tolerated)] no perturbation  OK   0.06s  
+  [base64 (also tolerated)] warm_ocean       OK   0.06s  
+  [base64 (also tolerated)] zeros            OK   0.06s  
+RESULT: all checks passed

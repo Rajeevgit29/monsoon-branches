@@ -1,0 +1,7 @@
+# Training, evaluation and dashboard data (needs the archive, not used by the server)
+-r requirements.txt
+xarray>=2024.1
+netCDF4>=1.6
+pandas>=2.1
+requests>=2.31
+monsoon-r1-kit @ https://github.com/OfficialAbhinavSingh/yug-monsoon-kit/releases/download/v1.0.0/monsoon_r1_kit-1.0.0-py3-none-any.whl

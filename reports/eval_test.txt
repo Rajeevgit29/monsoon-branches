@@ -1,0 +1,33 @@
+
+== model artifacts on test (2020, 2021): 240 windows ==
+mean skill (per-window, leads 1/4/8, 6 ch): +0.164  -> RMSE pts 30.0/30
+heavy-rain CSI  model 0.311  persist 0.194  clim 0.163  skill +0.122 -> 15.0/15
+day-8 variance ratio t2m=1.02 tp=0.70 u10=0.81 v10=0.79 msl=0.93 tcwv=0.89 -> 10.0/10
+lead               t2m                tp               u10               v10               msl              tcwv
+   1 +0.37 p+0.37 c+0.63 +0.30 p+0.30 c+0.37 +0.35 p+0.35 c+0.57 +0.38 p+0.38 c+0.53 +0.39 p+0.39 c+0.57 +0.41 p+0.41 c+0.65
+   4 +0.21 p+0.28 c+0.21 +0.06 p+0.30 c+0.06 +0.15 p+0.30 c+0.15 +0.13 p+0.34 c+0.13 +0.14 p+0.28 c+0.14 +0.20 p+0.31 c+0.20
+   8 +0.06 p+0.26 c+0.06 -0.01 p+0.27 c-0.01 +0.03 p+0.28 c+0.03 +0.02 p+0.28 c+0.02 +0.03 p+0.28 c+0.03 +0.04 p+0.25 c+0.04
+pooled skill by channel: t2m=+0.259 tp=+0.124 u10=+0.216 v10=+0.196 msl=+0.213 tcwv=+0.248
+day-4 beats persistence on every channel: True  (mean +0.303)   invalid windows: 0
+forecast wall time 16.9s for 240 windows
+5-window draws (as graded): forecast pts mean 42.4/45 (p10 35.8); full RMSE pts in 87% of draws, full CSI pts in 64%
+
+shocks: {
+ "causality_pts_mean": 13.438,
+ "causality_pts_min": 11.25,
+ "null_ok_all": true,
+ "warm_ocean.nonzero": 1.0,
+ "warm_ocean.localized": 1.0,
+ "warm_ocean.propagates": 0.917,
+ "warm_ocean.stable": 0.917,
+ "warm_ocean.no_teleport": 1.0,
+ "warm_ocean.near_frac_day1": 0.979,
+ "monsoon_stall.nonzero": 1.0,
+ "monsoon_stall.localized": 1.0,
+ "monsoon_stall.propagates": 0.333,
+ "monsoon_stall.stable": 1.0,
+ "monsoon_stall.no_teleport": 1.0,
+ "monsoon_stall.near_frac_day1": 0.986
+}
+
+estimated automated points: 68.4 / 70  (forecast 45 + dynamics 25; repo and brief not included)

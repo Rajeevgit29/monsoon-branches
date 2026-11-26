@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+# the training archive stays outside the repo (see README)
+*.nc
+/data/
+/runs/
+.playwright-mcp/

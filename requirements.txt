@@ -1,0 +1,5 @@
+# Serving (what the judge's offline container runs): python serve.py --port 8000
+numpy>=1.26
+torch>=2.1
+fastapi>=0.110
+uvicorn>=0.27

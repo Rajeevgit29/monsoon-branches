@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monsoon Branches</title>
+  <link rel="preload" href="vendor/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body data-mode="shock">
+<header class="top">
+  <div class="brand">
+    <h1>Monsoon Branches</h1>
+    <p data-show="shock">One forecast model, two starting points: what India's next 10 days look like, and what changes after a shock.</p>
+    <p data-show="check">How the 10-day forecast compares with what happened, and with two simple baselines.</p>
+  </div>
+  <div class="seg modes" id="modes" role="tablist" aria-label="View">
+    <button data-mode="shock" role="tab">What-if shock</button>
+    <button data-mode="check" role="tab">Forecast check</button>
+  </div>
+  <div class="server">
+    <span id="status" class="pill pill-wait" role="status">connecting…</span>
+    <label class="srv">Forecast server <input id="server" type="url" spellcheck="false" value="http://localhost:8000"></label>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="controls" aria-label="Experiment controls">
+    <section>
+      <h2><span class="step">1</span>Starting weather</h2>
+      <div id="examples" class="examples" role="radiogroup" aria-label="Held-out example"></div>
+    </section>
+
+    <section data-show="shock">
+      <h2><span class="step">2</span>Shock to the latest day</h2>
+      <div class="seg" id="presets" role="radiogroup" aria-label="Shock preset">
+        <button data-preset="monsoon_stall" role="radio">Arabian Sea wind stall</button>
+        <button data-preset="warm_ocean" role="radio">Warm Bay of Bengal</button>
+      </div>
+      <label class="row">Shock type
+        <select id="kind">
+          <option value="wind">Wind speed (both components)</option>
+          <option value="warm">Warm and moist (t2m, +5% vapour per K)</option>
+          <option value="moist">Water vapour only</option>
+          <option value="pressure">Sea-level pressure</option>
+        </select>
+      </label>
+      <label class="row">Strength <output id="strength-out"></output>
+        <input id="strength" type="range">
+      </label>
+      <fieldset class="box">
+        <legend>Box (cell centres inside, degrees)</legend>
+        <label>Lat <input id="la0" type="number" step="1" min="6" max="38"> to <input id="la1" type="number" step="1" min="6" max="38"> °N</label>
+        <label>Lon <input id="lo0" type="number" step="1" min="65" max="101"> to <input id="lo1" type="number" step="1" min="65" max="101"> °E</label>
+        <p class="hint">Or drag on a flat map to draw a new box.</p>
+      </fieldset>
+      <button id="run" class="primary">Run both forecasts</button>
+      <p id="runinfo" class="hint" aria-live="polite"></p>
+    </section>
+
+    <section class="about" data-show="shock">
+      <h2>How to read this</h2>
+      <p>The shock is a physical-unit change added to the last observed day. Both forecasts come from the same
+        deterministic model, so every difference comes from the shock.</p>
+      <p>Rain values are a <strong>model-projected rainfall indicator</strong> in mm/day, not an impact estimate.
+        Estimating crop loss would also need crop type, growing stage, irrigation and soil moisture.</p>
+    </section>
+
+    <section data-show="check">
+      <h2>Compared with</h2>
+      <dl class="defs">
+        <dt><i class="sw sw-1"></i>Our model</dt>
+        <dd>The 10-day forecast from the server, started from the three observed days.</dd>
+        <dt><i class="sw sw-2"></i>Repeat the last day</dt>
+        <dd>Assumes the last observed day stays the same for all 10 days (persistence).</dd>
+        <dt><i class="sw sw-3"></i>Date average</dt>
+        <dd>The 2005–2017 average for each calendar day (climatology).</dd>
+        <dt><i class="sw sw-obs"></i>Observed</dt>
+        <dd>What actually happened (ERA5). None of these events was used to train or select the model.</dd>
+      </dl>
+      <p id="checkinfo" class="hint" aria-live="polite"></p>
+    </section>
+
+    <section class="about" data-show="check">
+      <h2>How to read this</h2>
+      <p>The grader scores the model against the <strong>better</strong> of the two baselines, over the whole map, for
+        all six fields on days 1, 4 and 8. The error chart shows the same comparison for every day.</p>
+      <p>In the first days the forecast follows the real weather. Later, the exact day of a rain burst cannot be known
+        from three days of surface weather, so the forecast eases towards the date average. When timing is unknown
+        that is the lowest-error choice: a sharp burst on the wrong day is penalised twice, once where it rains and
+        once where it doesn't.</p>
+      <p>Single 1° cells (about 100 km) are noisy. <strong>Drag on a flat map</strong> to average over an area; click a cell to go back.</p>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Forecast maps">
+    <div class="tiles" id="tiles" data-show="check" aria-live="polite"></div>
+
+    <div class="toolbar">
+      <div class="seg" id="fields" role="tablist" aria-label="Field">
+        <button data-field="tp" role="tab">Rain</button>
+        <button data-field="dry" role="tab" data-show="shock">Dry spell</button>
+        <button data-field="t2m" role="tab">Temperature</button>
+        <button data-field="wind" role="tab">Wind</button>
+        <button data-field="msl" role="tab">Pressure</button>
+        <button data-field="tcwv" role="tab">Water vapour</button>
+      </div>
+    </div>
+
+    <div class="hero" id="hero">
+      <div class="hero-canvas" id="hero3d" role="img" aria-label="3D relief map of India and the surrounding seas with the selected forecast layer draped on it. The flat maps below show the same data on the exact 1-degree grid."></div>
+      <div class="hero-top">
+        <div class="seg glass" id="layers-shock" data-show="shock" aria-label="Layer on the 3D map">
+          <button data-layer="change">Change</button>
+          <button data-layer="shocked">Shocked</button>
+          <button data-layer="baseline">Baseline</button>
+          <button data-layer="observed">Observed</button>
+        </div>
+        <div class="seg glass" id="layers-check" data-show="check" aria-label="Layer on the 3D map">
+          <button data-layer="forecast">Forecast</button>
+          <button data-layer="observed">Observed</button>
+          <button data-layer="error">Error</button>
+        </div>
+        <div class="hero-tools">
+          <button id="windbtn" class="chip glass" aria-pressed="true">Wind flow</button>
+          <div class="seg glass" id="viewbtns" aria-label="Camera">
+            <button data-view="tilt">Tilted</button>
+            <button data-view="top">Overhead</button>
+          </div>
+        </div>
+      </div>
+      <div class="hero-bottom">
+        <div class="legend glass" id="legend-3d"></div>
+        <p class="hero-note" id="note-3d"></p>
+      </div>
+      <p class="hero-fallback" id="hero-fallback" hidden>The 3D view needs WebGL. The flat maps below show the same data.</p>
+    </div>
+
+    <div class="timeline">
+      <button id="play" class="play" aria-label="Play the 10 days">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path class="i-play" d="M4 2.5v11l9.5-5.5z"/><path class="i-pause" d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>
+      </button>
+      <div id="days" class="days" role="group" aria-label="Forecast day"></div>
+    </div>
+
+    <div class="maps" aria-label="Flat maps on the exact 1-degree grid">
+      <figure class="map" data-panel="base">
+        <figcaption>
+          <span class="seg mini" id="basemode" data-show="shock">
+            <button data-mode="forecast" aria-pressed="true">Baseline forecast</button>
+            <button data-mode="observed" aria-pressed="false">Observed</button>
+          </span>
+          <span class="cap" data-show="check">Observed</span>
+        </figcaption>
+        <div class="canvas-wrap"><canvas></canvas></div>
+      </figure>
+      <figure class="map" data-panel="shock">
+        <figcaption>
+          <span class="cap" data-show="shock">Shocked forecast</span>
+          <span class="seg mini" id="srcmode" data-show="check" aria-label="Forecast shown">
+            <button data-src="model">Our model</button>
+            <button data-src="persist">Repeat last day</button>
+            <button data-src="clim">Date average</button>
+          </span>
+        </figcaption>
+        <div class="canvas-wrap"><canvas></canvas></div>
+      </figure>
+      <figure class="map" data-panel="diff">
+        <figcaption>
+          <span class="cap" data-show="shock">Change (shocked − baseline)</span>
+          <span class="cap" data-show="check" id="errcap">Error (forecast − observed)</span>
+          <span class="seg mini" id="errmode" data-show="check" aria-label="Error view">
+            <button data-err="error">Error</button>
+            <button data-err="heavy">Heavy rain</button>
+          </span>
+        </figcaption>
+        <div class="canvas-wrap"><canvas></canvas></div>
+      </figure>
+    </div>
+    <div class="legends">
+      <div class="legend" id="legend-seq"></div>
+      <div class="legend" id="legend-div"></div>
+    </div>
+
+    <div class="lower" data-show="shock">
+      <div class="cell-panel">
+        <div class="cell-head">
+          <h3 id="cell-title">Pick a cell on any map</h3>
+          <p id="cell-sub" class="hint"></p>
+        </div>
+        <div id="chart" class="chart" aria-label="Ten-day rainfall at the selected cell"></div>
+        <table id="cell-table" class="sr-table"></table>
+      </div>
+      <div class="summary">
+        <h3>What the shock did</h3>
+        <dl id="summary"></dl>
+      </div>
+    </div>
+
+    <div class="lower lower-check" data-show="check">
+      <div class="cell-panel">
+        <div class="cell-head">
+          <h3>Error by forecast day <span class="muted">(lower is better)</span></h3>
+          <span class="seg mini" id="scope" aria-label="Windows">
+            <button data-scope="event">This event</button>
+            <button data-scope="test">All test windows</button>
+          </span>
+        </div>
+        <p id="err-sub" class="hint"></p>
+        <div id="err-legend" class="key"></div>
+        <div id="err-chart" class="chart"></div>
+        <table id="err-table" class="sr-table"></table>
+      </div>
+      <div class="cell-panel">
+        <div class="cell-head">
+          <h3 id="pt-title">Pick a cell on any map</h3>
+        </div>
+        <p id="pt-sub" class="hint"></p>
+        <div id="pt-legend" class="key"></div>
+        <div id="pt-chart" class="chart"></div>
+        <table id="pt-table" class="sr-table"></table>
+      </div>
+    </div>
+
+    <footer class="foot">Built by team intelligentapes. Relief from ERA5 surface height (0.25°, via WeatherBench 2), coastlines from Natural Earth, 3D drawing with three.js.</footer>
+  </section>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script type="module" src="globe.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

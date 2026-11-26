@@ -1,0 +1,20 @@
+{
+ "points": 15.0,
+ "anti_cheat_points": 8.0,
+ "code_health_points": 7.0,
+ "flags": [],
+ "health": {
+  "training_pipeline": true,
+  "frontend_present": true,
+  "server_separate_from_ui": true,
+  "readme": true,
+  "checkpoint": true
+ },
+ "inference_files": [
+  "monsoon_branches/__init__.py",
+  "monsoon_branches/grid.py",
+  "monsoon_branches/model.py",
+  "scripts/make_brief.py",
+  "serve.py"
+ ]
+}
