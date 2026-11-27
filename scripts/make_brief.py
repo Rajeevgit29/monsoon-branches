@@ -60,9 +60,8 @@ def main():
     model_items = []
     if ar1:
         model_items.append("<li><b>Climate memory as the base.</b> Each day starts from a per-cell, per-season AR(1) forecast, "
-                           "clim(t+1) + φ·(x(t) − clim(t)), fitted on the training years. Pressure and ocean temperature remember about 0.8 of "
-                           "an anomaly a day, rain about 0.5, so long leads relax towards climatology at each region's own rate. The CNN learns "
-                           "corrections to it.</li>")
+                           "clim(t+1) + φ·(x(t) − clim(t)), fitted on the training years (φ ≈ 0.8 a day for pressure and sea temperature, "
+                           "0.5 for rain). The CNN learns corrections to it.</li>")
     if phys:
         model_items.append("<li><b>India's terrain and moisture budget as inputs,</b> recomputed from the state every day: terrain slopes, "
                            "orographic lift (wind · slope) and the moisture it forces up the Western Ghats and Himalaya, vapour flux and its "
@@ -89,10 +88,16 @@ def main():
                            "are left out.</li>")
     model_items.append(f"<li><b>Locality and training.</b> 3×3 convolutions only, no pooling or attention: one day sees about {1 + 2 * cfg['blocks']} cells, "
                        f"so shocks spread only as forecasts feed back. Years {years} train; 2018–2019 tune; 2020–2022 held out. The loss is "
-                       f"latitude-weighted MSE scaled per field by the better reference, as scored; one-step, then 2-, 4- and 8-day rollouts. "
-                       f"{members} seeds averaged ({n_par:,} parameters each, {size_mb:.0f} MB). Output calibration fitted on 2018–2019: rain below "
-                       f"10 mm/day rescaled per lead ({gain[0]:.2f} → {gain[-1]:.2f}); for the other fields the drift is removed and long-lead "
-                       f"anomalies are scaled down (day-8 λ ≈ {np.mean([cfg['mos']['lam'][7][c] for c in (0, 2, 3, 4, 5)]) if cfg.get('mos') else 1:.2f}).</li>")
+                       f"latitude-weighted MSE scaled per field by the better reference, as scored. "
+                       f"{members} seeds averaged ({n_par:,} parameters each, {size_mb:.0f} MB).</li>")
+    lam8 = np.mean([cfg['mos']['lam'][7][c] for c in (0, 2, 3, 4, 5)]) if cfg.get('mos') else 1.0
+    drift_blur = (f"<li><b>Drift.</b> The AR(1) base pulls every field back to its own climatology at its measured rate, so long leads cannot wander "
+                  f"off; the network is trained on its own 2-, 4- and 8-day rollouts (one-step first); per-lead domain-mean drift is removed from "
+                  f"the returned forecast (fitted on 2018–2019, never fed back).</li>"
+                  f"<li><b>Blur.</b> Local convolutions and {members} deterministic members, no map-wide averaging. Rain below 10 mm/day is rescaled per "
+                  f"lead ({gain[0]:.2f} → {gain[-1]:.2f}) to restore the moderate rain a squared-error rollout damps; long-lead anomalies are scaled "
+                  f"down only as far as the tuning years support (day-8 λ ≈ {lam8:.2f}). Day-8 spatial variance stays at ≥ {min(vr.values()):.2f} of "
+                  f"observed on every field (0.40 needed).</li>")
 
     html = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Monsoon Branches · Round 1 brief</title>
@@ -132,14 +137,18 @@ code {{ font: 7.3pt/1.3 ui-monospace, Menlo, monospace; }}
 <section class="page">
   <header><h1>Monsoon Branches</h1>
     <div class="meta">Team intelligentapes · Multiverse of Monsoon · Yugaantar DevForge<br>Round 1 brief · Page 1 · Model and evidence</div></header>
-  <p class="lede">We forecast 10 days of weather over India and the surrounding seas from three observed days, rerun the same model from a
-    <b>shocked</b> start to show where a local change to today's weather moves rainfall and dry spells, and check those responses against how
-    the real atmosphere has behaved. <b>Demo question:</b> if winds over the Arabian Sea weaken today, where will it rain more or less over the next 10 days?</p>
+  <p class="lede">We forecast 10 days of weather over India and the surrounding seas from three observed days, and rerun the same model from a
+    <b>shocked</b> start to show where a local change to today's weather moves rainfall and dry spells. <b>USP:</b> the what-if answers are
+    checked against reality. Each shock response is fine-tuned to the rain response measured in ERA5 with the rest of the day held fixed
+    ({sum(inside)} of 4 checks met), from a forecaster whose locality is built in and that answers in {lat['mean']:.2f} s on a laptop CPU.</p>
+  <p class="small note" style="padding:1.2mm 2.2mm;color:#191919"><b>System architecture.</b> <code>train.py</code> (GPU; 1979–2017; 3 seeds) →
+    <code>scripts/finalize.py</code> (ensemble, calibration, model choice on 2018–2019 by a fixed rule) → <code>artifacts/</code> ({size_mb:.0f} MB of plain
+    arrays) → <code>serve.py</code> (FastAPI, offline, ≤ 4 CPU threads; <code>/health</code>, <code>/simulate</code>) ← grader. <code>dashboard/</code> is a
+    separate static web app that calls the same <code>/simulate</code> live.</p>
 
   <div class="grid3">
     <div><h2>Model · {"physics-informed" if phys else "observation-constrained"}, local, deterministic</h2><ul>{''.join(model_items)}</ul>
-      <img src="figures/skill_by_lead.png" alt="RMSE relative to climatology by lead" style="margin-top:1.2mm;width:70%">
-      <div class="cap">RMSE ÷ climatology RMSE, mean of the six fields, held-out 2020–2021: {rel_m[0]:.2f} on day 1 (persistence {rel_p[0]:.2f}), {rel_m[-1]:.2f} on day 10.</div>
+      <h2 style="margin-top:1.6mm">Preventing drift and blur</h2><ul>{drift_blur}</ul>
       <div class="note" style="margin-top:1.6mm"><h3>Qualification gates</h3>
         <p>Day-4 skill above persistence on every field ({sgn(min(test['per_lead']['4']['ss_persist'].values()))} at worst);
           {test['invalid_windows']} invalid outputs in {test['windows']} windows (finite, rain ≥ 0, −40 to +60 °C); a non-zero, localised
@@ -160,7 +169,7 @@ code {{ font: 7.3pt/1.3 ui-monospace, Menlo, monospace; }}
         <div class="tile"><div class="v">{lat['mean']:.2f} s</div><div class="k">HTTP round trip, 10 days, CPU (max {lat['max']:.2f} s)</div></div>
       </div>
       <h2 style="margin-top:2.2mm">Are the shock responses realistic? · vs ERA5, June–September</h2>
-      <img src="figures/shock_realism.png" alt="Model vs observed shock sensitivity" style="width:88%">
+      <img src="figures/shock_realism.png" alt="Model vs observed shock sensitivity" style="width:80%">
       <div class="cap">Observed: regional rain on day t+k regressed on the driver on day t, <i>holding the same day's weather fixed</i>
         (2005–2017), 90% range from resampling years. Model: the same single-field shock on 2018–2019 windows. The final model is inside
         {sum(inside)} of 4 ranges: {', '.join(('<span class="ok">' if ok else '<span class="no">') + n + '</span>' for n, ok in zip(['Ghats day 1', 'inland days 2–8', 'Bay vapour', 'Bay warmth (sign)'], inside))}.</div>
@@ -177,12 +186,11 @@ code {{ font: 7.3pt/1.3 ui-monospace, Menlo, monospace; }}
         {pct(wo['near_frac_day1'])} (warm Bay) of day-1 response energy lies within 3 cells of the box. Over 12 held-out windows: localised
         {pct(sh['monsoon_stall.localized'])} / {pct(sh['warm_ocean.localized'])}, spreading {pct(sh['monsoon_stall.propagates'])} /
         {pct(sh['warm_ocean.propagates'])}, within 5 std {pct(sh['monsoon_stall.stable'])} / {pct(sh['warm_ocean.stable'])}.</p>
-      <div class="note" style="margin-top:1.6mm"><h3>Measured limitations</h3>
+      <div class="note" style="margin-top:1.6mm"><h3>Failure modes (measured)</h3>
         <p>Heavy rain is under-forecast: where more than 50 mm/day fell, the forecast gives {100 * fig['heavy_rain_ratio']['day1']:.0f}% of it on day 1
-          and {100 * fig['heavy_rain_ratio']['day4']:.0f}% on day 4; rain skill reaches climatology level by day 8
-          ({sgn(test['per_lead']['8']['ss']['tp'])}). The realism check compares with observed regressions, which are associations, not
-          experiments{'' if all(inside) else '; responses outside the observed range (red) are too weak or too strong'}. Single-field shocks
-          (wind without the matching pressure change) lie outside anything in the training data.</p></div>
+          and {100 * fig['heavy_rain_ratio']['day4']:.0f}% on day 4, and single-cell flood peaks are missed (Konkan: 56 mm/day observed, 27 forecast two days ahead). Rain skill reaches climatology level by day 8 ({sgn(test['per_lead']['8']['ss']['tp'])}). The wind-stall
+          response often fades before days 4–8 (spreads in {pct(sh['monsoon_stall.propagates'])} of windows). The realism check rests on observed
+          regressions: associations, not experiments{'' if all(inside) else '; responses outside the observed range (red) are too weak or too strong'}.</p></div>
     </div>
   </div>
 </section>
